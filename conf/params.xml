@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<opencv_storage>
+    <enemy_color>0</enemy_color>
+    <video_path>../video/armor_20181217_225820.avi</video_path>
+    <brightness_thresh_val>200</brightness_thresh_val>
+    <color_thresh_val_red>40</color_thresh_val_red>
+    <color_thresh_val_blue>70</color_thresh_val_blue>
+</opencv_storage>
