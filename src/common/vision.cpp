@@ -24,13 +24,14 @@ void vision_process() {
 //    geometry_process hero_geometry();
 //    hero_geometry.init();
 
-    armor_detector detector;
-    detector.init(_params);
+    armor_detector detector(_params);
     while (1) {
+        armors.clear();
+
         frame_capture >> frame_forward;
         detector.detect(frame_forward, armors);
         cv::imshow("result", frame_forward);
-        cv::waitKey(0);
+        cv::waitKey(1);
     }
 }
 

@@ -9,5 +9,6 @@ namespace vision_mul
 void vision_process();
 
 }
+
 }
 #endif
