@@ -4,8 +4,6 @@
 #include "tools/debug_tool.hpp"
 #include "utility/xml_loader.hpp"
 
-#define __DEBUG_LIGHT__
-#define __DEBUG_ARMOR__
 #define POINT_DIST(p1,p2) std::sqrt((p1.x-p2.x)*(p1.x-p2.x) + (p1.y-p2.y)*(p1.y-p2.y))
 
 namespace Hero_Vision
@@ -13,138 +11,8 @@ namespace Hero_Vision
 namespace vision_mul
 {
 
-void adjust_rect(std::vector<cv::RotatedRect> &RRects) {
-    for (auto &RRect : RRects) {
-        if (RRect.size.width < RRect.size.height) {
-            continue;
-        } else {
-            double temp;
-            temp = RRect.size.height;
-            RRect.size.height = RRect.size.width;
-            RRect.size.width = temp;
-            RRect.angle += 90;
-        }
-    }
-}
-
-void armor_detector::detect(cv::Mat &frame, std::vector<cv::RotatedRect> &armors) {
-    std::vector<cv::RotatedRect> lights;
-
-    detect_lights(frame, lights);
-    adjust_rect(lights);
-
-#ifdef __DEBUG_LIGHT__
-    Tools::show_debug_info("show_lights_after_detect", frame.size(), lights);
-#endif
-
-    filter_lights(lights);
-
-#ifdef __DEBUG_LIGHT__
-    cv::Mat show_lights_after_filter(frame.size(), CV_8UC3, cv::Scalar(0, 0, 0));
-    for (auto &light : lights) {
-        Tools::draw_rotated_rect(show_lights_after_filter, light);
-    }
-    for (int i = 0; i < lights.size(); ++i) {
-        cv::putText(show_lights_after_filter, cv::format("%d", i), lights[i].center, CV_FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 255), 1, cv::LINE_AA);
-    }
-    imshow("show_lights_after_filter", show_lights_after_filter);
-#endif
-
-    get_armors(lights, armors);
-
-#ifdef __DEBUG_ARMOR__
-    cv::Mat show_armors_after_get(frame.size(), CV_8UC3, cv::Scalar(0, 0, 0));
-    for (auto &armor : armors) {
-        Tools::draw_rotated_rect(show_armors_after_get, armor);
-    }
-    imshow("show_armors_after_get", show_armors_after_get);
-#endif
-
-    filter_armors();
-}
-
-void armor_detector::detect_lights(cv::Mat &frame, std::vector<cv::RotatedRect> &lights) const {
-    cv::Mat color_light;
-    std::vector<cv::Mat> bgr_channels;
-    cv::split(frame, bgr_channels);
-
-    if (enemy_color == RED) {
-        cv::subtract(bgr_channels[2], bgr_channels[1], color_light);
-    } else {
-        cv::subtract(bgr_channels[0], bgr_channels[1], color_light);
-    }
-
-    cv::Mat binary_brightness_img;
-    cv::Mat binary_color_img;
-    cv::Mat binary_light_img;
-    cv::Mat gray_img;
-
-    cv::cvtColor(frame, gray_img, cv::COLOR_BGR2GRAY);
-    cv::threshold(gray_img, binary_brightness_img, brightness_thresh_val, 255, CV_THRESH_BINARY);
-
-    cv::threshold(color_light, binary_color_img, enemy_color == RED ? color_thresh_val_red : color_thresh_val_blue, 255, CV_THRESH_BINARY);
-
-    cv::Mat element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3));
-    cv::dilate(binary_color_img, binary_color_img, element, cv::Point(-1, -1), 1);
-
-    binary_light_img = binary_color_img & binary_brightness_img;
-
-    std::vector<std::vector<cv::Point> > contours_light;
-    cv::findContours(binary_light_img, contours_light, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);
-
-    std::vector<std::vector<cv::Point> > contours_brightness;
-    cv::findContours(binary_brightness_img, contours_brightness, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);
-
-    lights.reserve(contours_brightness.size());
-
-    std::vector<int> is_processes(contours_brightness.size());
-
-    for (unsigned int i = 0; i < contours_light.size(); ++i) {
-        for (unsigned int j = 0; j < contours_brightness.size(); ++j) {
-            if (!is_processes[j]) {
-                if (cv::pointPolygonTest(contours_brightness[j], contours_light[i][0], true) >= 0.0) {
-                    cv::RotatedRect single_light = cv::minAreaRect(contours_brightness[j]);
-                    lights.push_back(single_light);
-                    is_processes[j] = true;
-                    break;
-                }
-            }
-        }
-    }
-}
-
-void armor_detector::filter_lights(std::vector<cv::RotatedRect> &lights) {
-    std::vector<cv::RotatedRect> light_rects;
-    for (auto &light : lights) {
-        double ratio = std::max(light.size.height, light.size.width) / std::min(light.size.height, light.size.width);
-        double area = light.size.area();
-        double angle = light.angle;
-        /*
-        if (ratio > 6 && area > 20 && std::abs(angle) < 10) {
-            light_rects.push_back(light);
-        } else if (ratio > 5 && area > 20 && std::abs(angle) < 10) {
-            light_rects.push_back(light);
-        } else if (ratio > 4 && area > 20 && std::abs(angle) < 15) {
-            light_rects.push_back(light);
-        } else if (ratio > 3.5 && area > 20 && std::abs(angle) < 15) {
-            light_rects.push_back(light);
-        } else if (ratio > 3.5 && area > 1000 && std::abs(angle) < 16) {
-            light_rects.push_back(light);
-        } else if (ratio > 3 && area > 100 && std::abs(angle) < 3) {
-            light_rects.push_back(light);
-        }*/
-        if (3 < ratio && ratio < 13 &&
-            100 < area && area < 1700 &&
-            std::abs(angle) < 15) {
-                light_rects.push_back(light);
-        } else if (0) {
-                light_rects.push_back(light);
-        }
-    }
-    lights = light_rects;
-}
-
-cv::RotatedRect boundingRRect(const cv::RotatedRect & left, const cv::RotatedRect & right){
+Armor_info boundingRRect(const cv::RotatedRect & left, const cv::RotatedRect & right){
+    Armor_info single_armor_info;
 	const cv::Point & pl = left.center, & pr = right.center;
 	cv::Point2f center; 
 	center.x = (pl.x + pr.x) / 2.0;
@@ -154,34 +22,18 @@ cv::RotatedRect boundingRRect(const cv::RotatedRect & left, const cv::RotatedRec
 	float width = POINT_DIST(pl, pr) - (wh_l.width + wh_r.width) / 2.0;
 	float height = std::max(wh_l.height, wh_r.height);
 	float angle = std::atan2(right.center.y - left.center.y, right.center.x - left.center.x);
-	return cv::RotatedRect(center, cv::Size2f(width, height), angle * 180 / CV_PI);
+	single_armor_info.armor_RRect = cv::RotatedRect(center, cv::Size2f(width, height), angle * 180 / CV_PI);
+    single_armor_info.armor_points.left_bottom = cv::Point2f(left.center.x - left.size.height / 2 * std::sin(left.angle * CV_PI / 180), left.center.y + left.size.height / 2 * std::cos(left.angle * CV_PI / 180));
+    single_armor_info.armor_points.left_top = cv::Point2f(left.center.x + left.size.height / 2 * std::sin(left.angle * CV_PI / 180), left.center.y - left.size.height / 2 * std::cos(left.angle * CV_PI / 180));
+    single_armor_info.armor_points.right_bottom = cv::Point2f(right.center.x - right.size.height / 2 * std::sin(right.angle * CV_PI / 180), right.center.y + right.size.height / 2 * std::cos(right.angle * CV_PI / 180));
+    single_armor_info.armor_points.right_top = cv::Point2f(right.center.x + right.size.height / 2 * std::sin(right.angle * CV_PI / 180), right.center.y - right.size.height / 2 * std::cos(right.angle * CV_PI / 180));
+    return single_armor_info;
 }
 
-void armor_detector::get_armors(std::vector<cv::RotatedRect> &lights, std::vector<cv::RotatedRect> &armors) {
+void Armor_Detector::get_armors(std::vector<cv::RotatedRect> &lights, std::vector<Armor_info> &armors) {
     if (lights.size() >= 2) {
         for (int i = 0; i < lights.size() - 1; ++i) {
             for (int j = i + 1; j < lights.size(); ++j) {
-                /*
-                if (std::abs(lights[i].center.x - lights[j].center.x) < 4 * std::max(lights[i].size.height, lights[j].size.height) &&
-                    std::abs(lights[i].center.y - lights[j].center.y) < 1.5 * std::max(lights[i].size.height, lights[j].size.height)) {
-                    double light_ratio_i = std::max(lights[i].size.width, lights[i].size.height) /
-                                            std::min(lights[i].size.width, lights[i].size.height);
-                    double light_ratio_j = std::max(lights[j].size.width, lights[j].size.height) /
-                                            std::min(lights[j].size.width, lights[j].size.height);
-                    double light_ratio_r = std::max(light_ratio_i, light_ratio_j) /
-                                            std::min(light_ratio_i, light_ratio_j) - 1;
-                    double light_area_r = std::max(lights[i].size.area(), lights[j].size.area()) /
-                                            std::min(lights[i].size.area(), lights[j].size.area()) - 1;
-                    double light_angle_r = std::max(std::abs(lights[i].angle), std::abs(lights[j].angle)) /
-                                            std::min(std::abs(lights[i].angle), std::abs(lights[j].angle)) - 1;
-                    double judge_val = light_ratio_r * light_weight_ratio + light_angle_r * light_weight_angle
-                                        + light_area_r * light_weight_area;
-                    if (judge_val < 6) {
-                        armors.push_back(lights[i].center.x < lights[j].center.x ? boundingRRect(lights[i], lights[j]) : 
-                                                                        boundingRRect(lights[j], lights[i]));
-                    }
-                }
-                */
                 double height_diff = std::abs(lights[i].size.height - lights[j].size.height);
                 double height_sum = lights[i].size.height + lights[j].size.height;
                 double width_diff = std::abs(lights[i].size.width - lights[j].size.width);
@@ -291,6 +143,7 @@ void armor_detector::get_armors(std::vector<cv::RotatedRect> &lights, std::vecto
                     */
                     armors.push_back(lights[i].center.x < lights[j].center.x ? boundingRRect(lights[i], lights[j]) : boundingRRect(lights[j], lights[i]));
                 } else {
+                    /*
                     std::cout << cv::format("********************%d--%d*********************", i, j) << std::endl;
                     std::cout << "height_diff: " << height_diff << std::endl;
                     std::cout << "height_sum: " << height_sum << std::endl;
@@ -302,13 +155,14 @@ void armor_detector::get_armors(std::vector<cv::RotatedRect> &lights, std::vecto
                     std::cout << "height_max: " << height_max << std::endl;
                     std::cout << "X_diff: " << X_diff << std::endl;
                     std::cout << "*********************************************************" << std::endl;
+                    */                
                 }
             }
         }
     }
 }
 
-void armor_detector::filter_armors(void) {
+void Armor_Detector::filter_armors(void) {
 
 }
 

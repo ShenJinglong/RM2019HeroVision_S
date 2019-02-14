@@ -1,4 +1,4 @@
-project(detect)
+project(driver)
 
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}
@@ -6,12 +6,10 @@ include_directories(
     ${CURRENT_PROJECT_DIR}/inc
 )
 
-add_library(detect
-    armor_detect.cpp
-    lamppost_detect.cpp
-    light_detect.cpp    
+add_library(driver
+    camera_driver.cpp    
 )
 
-target_link_libraries(detect
+target_link_libraries(driver
     ${OpenCV_LIBRARIES}
 )

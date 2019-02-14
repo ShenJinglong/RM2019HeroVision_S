@@ -24,4 +24,5 @@ target_link_libraries(hero_vision
     detect
     tools
     utility
+    driver
 )

@@ -1,9 +1,12 @@
 <?xml version="1.0"?>
 <opencv_storage>
     <enemy_color>0</enemy_color>
-<!--<video_path>../video/armor_20181217_225520.avi</video_path>-->
-<!--<video_path>../video/armor_20181217_225430.avi</video_path>-->
+<!--    <video_path>../video/armor_20181217_225520.avi</video_path> -->
+<!--    <video_path>../video/armor_20181217_225430.avi</video_path> -->
     <video_path>../video/armor_20181217_225820.avi</video_path>
+    <video_or_camera>0</video_or_camera>
+    <usb_cam_id>/dev/video1</usb_cam_id>
+    <exposure_time>50</exposure_time>
     <brightness_thresh_val>200</brightness_thresh_val>
     <color_thresh_val_red>40</color_thresh_val_red>
     <color_thresh_val_blue>70</color_thresh_val_blue>
